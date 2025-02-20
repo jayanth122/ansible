@@ -1,0 +1,89 @@
+---
+- hosts: all
+  become: true
+  vars:
+    container_count: 4
+    default_container_name: docker
+    default_container_image: ubuntu
+    default_container_command: sleep 1d
+    ansible_python_interpreter: /usr/bin/python3  # Ensure correct Python interpreter
+
+  tasks:
+    - name: Install aptitude
+      tags: install
+      apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+
+    - name: Install required system packages
+      tags: install
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - virtualenv
+          - python3-setuptools
+          - python3-docker  # Install docker module via apt (avoids pip issues)
+        state: latest
+        update_cache: true
+
+    - name: Add Docker GPG apt Key
+      tags: install
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      tags: install
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      tags: install
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Verify Python version used by Ansible
+      command: python3 --version
+      register: python_version
+
+    - name: Show Python version
+      debug:
+        msg: "Ansible is using Python version: {{ python_version.stdout }}"
+
+    - name: Verify installed Python packages
+      command: pip3 list
+      register: pip_list
+
+    - name: Show installed pip packages
+      debug:
+        msg: "{{ pip_list.stdout_lines }}"
+
+    - name: Pull default Docker image
+      tags: pull
+      docker_image:
+        name: "{{ default_container_image }}"
+        source: pull
+
+    - name: Run default containers
+      tags: run
+      docker_container:
+        name: "{{ default_container_name }}{{ item }}"
+        image: "{{ default_container_image }}"
+        command: "{{ default_container_command }}"
+        state: present
+      with_sequence: count={{ container_count }}
+
