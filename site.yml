@@ -31,6 +31,31 @@
       state: latest
     when: ansible_distribution == "Ubuntu"
 
+  - name: start apache (Ubuntu)
+    tags: ubuntu,apache,apache2
+    service:
+      name: apache2
+      state: started
+      enabled: yes
+    when: ansible_distribution == "Ubuntu"
+
+  - name: Change email address for admin (Ubuntu)
+    tags: ubuntu, apache, apache2
+    lineinfile:
+      path: /etc/apache2/sites-available/000-default.conf
+      regexp: '^(\s*)ServerAdmin\s+\S+'
+      line: '        ServerAdmin somebody@somewhere.com'
+      backrefs: yes
+    when: ansible_distribution == "Ubuntu"
+    register: apache2_service
+
+  - name: restart apache (Ubuntu)
+    tags: ubuntu,apache,apache2
+    service:
+      name: apache2
+      state: restarted
+    when: apache2_service.changed
+
   - name: copy default (index) html file for site
     tags: apache,apache2,httpd
     copy:
